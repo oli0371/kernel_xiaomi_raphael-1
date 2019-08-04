@@ -1540,3 +1540,6 @@ config MACH_XIAOMI_RAPHAEL
 endmenu
 
 endmenu
+
+source "techpack/Kconfig"
+
