@@ -27,7 +27,6 @@ ZIP_MOVE="${HOME}/tools/AK-releases"
 
 # Functions
 function clean_all {
-		rm -rf $REPACK_DIR/dtbs/*
 		rm -rf $REPACK_DIR/Image.gz-dtb
 		cd $KERNEL_DIR
 		echo
@@ -44,10 +43,6 @@ function make_kernel {
 
 function make_boot {
 		cp out/arch/arm64/boot/Image.gz-dtb $REPACK_DIR
-#        	cp out/arch/arm64/boot/dts/qcom/sm8150-v2.dtb $REPACK_DIR/dtbs
-#		cp out/arch/arm64/boot/dts/qcom/sm8150p.dtb $REPACK_DIR/dtbs
-#		cp out/arch/arm64/boot/dts/qcom/sm8150.dtb $REPACK_DIR/dtbs
-#        	cp out/arch/arm64/boot/dts/qcom/sm8150p-v2.dtb $REPACK_DIR/dtbs
 }
 
 
@@ -70,12 +65,10 @@ echo -e "${restore}"
 
 
 # Vars
-BASE_AK_VER="SOVIET-ZEN-"
+BASE_AK_VER="SOVIET-STAR-"
 DATE=`date +"%Y%m%d-%H%M"`
 AK_VER="$BASE_AK_VER$VER"
 ZIP_NAME="$AK_VER"-"$DATE"
-#export LOCALVERSION=~`echo $AK_VER`
-#export LOCALVERSION=~`echo $AK_VER`
 export ARCH=arm64
 export SUBARCH=arm64
 export KBUILD_BUILD_USER=NATO66613
