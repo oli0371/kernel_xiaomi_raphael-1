@@ -28,7 +28,7 @@ ZIP_MOVE="${HOME}/tools/AK-releases"
 # Functions
 function clean_all {
 		rm -rf $REPACK_DIR/dtbs/*
-		rm -rf $REPACK_DIR/Image.*
+		rm -rf $REPACK_DIR/Image.gz-dtb
 		cd $KERNEL_DIR
 		echo
 		make clean && make mrproper
