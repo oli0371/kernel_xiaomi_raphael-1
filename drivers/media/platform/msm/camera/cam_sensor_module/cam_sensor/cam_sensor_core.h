@@ -14,7 +14,6 @@
 #define _CAM_SENSOR_CORE_H_
 
 #include "cam_sensor_dev.h"
-#define XIAOMI_CAM_DBG
 
 /**
  * @s_ctrl: Sensor ctrl structure
