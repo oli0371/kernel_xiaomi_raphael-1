@@ -9813,7 +9813,6 @@ static irqreturn_t tavil_slimbus_irq(int irq, void *data)
 			}
 
 		}
-
 		if ((val & WCD934X_SLIM_IRQ_OVERFLOW) ||
 			(val & WCD934X_SLIM_IRQ_UNDERFLOW)) {
 			if (!tx)

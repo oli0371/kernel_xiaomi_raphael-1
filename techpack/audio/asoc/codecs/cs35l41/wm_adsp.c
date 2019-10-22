@@ -9,6 +9,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+//#define WM_ADSP_DEBUG
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -1050,7 +1051,6 @@ static int wm_adsp_cal_chksum_put(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
-
 static int wm_adsp_block_bypass_get(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
@@ -1088,43 +1088,6 @@ static int wm_adsp_block_bypass_put(struct snd_kcontrol *kcontrol,
 	}
 
 	dev_info(codec->dev, "block_bypass = %d\n", dsp->block_bypass);
-
-	return 0;
-}
-
-static int wm_adsp_block_bypass_in_enh_get(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct wm_adsp *dsp = snd_soc_codec_get_drvdata(codec);
-
-	ucontrol->value.enumerated.item[0] = dsp->block_bypass_in_enh;
-
-	return 0;
-}
-
-static int wm_adsp_block_bypass_in_enh_put(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct wm_adsp *dsp = snd_soc_codec_get_drvdata(codec);
-
-	dsp->block_bypass_in_enh = ucontrol->value.enumerated.item[0];
-
-	switch(dsp->block_bypass_in_enh) {
-		case 0:
-			dev_info(codec->dev, "block_bypass_in_enh = %d, put 0x00000000.\n", dsp->block_bypass_in_enh);
-			wm_adsp_k_ctl_put(dsp, "DSP1X Protection cd BYPASS_IN_ENH", 0x00000000);
-			break;
-		case 1:
-			dev_info(codec->dev, "block_bypass_in_enh = %d, put 0x00400001.\n", dsp->block_bypass_in_enh);
-			wm_adsp_k_ctl_put(dsp, "DSP1X Protection cd BYPASS_IN_ENH", 0x00400001);
-			break;
-		default:
-			break;
-	}
-
-	dev_info(codec->dev, "block_bypass_in_enh = %d\n", dsp->block_bypass_in_enh);
 
 	return 0;
 }
@@ -1171,8 +1134,6 @@ const struct snd_kcontrol_new wm_adsp_cal_controls[] = {
 		       wm_adsp_cal_chksum_get, wm_adsp_cal_chksum_put),
 	SOC_ENUM_EXT("DSP Block Bypass", wm_adsp_block_bypass_enum[0],
 		     wm_adsp_block_bypass_get, wm_adsp_block_bypass_put),
-	SOC_ENUM_EXT("DSP Block Bypass_IN_ENH", wm_adsp_block_bypass_enum[0],
-		     wm_adsp_block_bypass_in_enh_get, wm_adsp_block_bypass_in_enh_put),
 };
 EXPORT_SYMBOL_GPL(wm_adsp_cal_controls);
 

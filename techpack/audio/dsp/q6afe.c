@@ -30,9 +30,8 @@
 #include <ipc/apr_tal.h>
 #include "adsp_err.h"
 #include "q6afecal-hwdep.h"
-
 #ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-#include "../asoc/codecs/tfa98xx/tfa_platform_interface_definition.h"
+#include "../asoc/codecs/tfa98xx/inc/tfa_platform_interface_definition.h"
 #endif
 
 #ifdef CONFIG_MSM_CSPL
@@ -167,11 +166,11 @@ struct afe_ctl {
 	u32 island_mode[AFE_MAX_PORTS];
 	struct vad_config vad_cfg[AFE_MAX_PORTS];
 	struct work_struct afe_dc_work;
-	struct notifier_block event_notifier;
 #ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
 	struct rtac_cal_block_data tfa_cal;
 	atomic_t tfa_state;
 #endif /*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
+	struct notifier_block event_notifier;
 	/* FTM spk params */
 	uint32_t initial_cal;
 	uint32_t v_vali_flag;
@@ -267,6 +266,7 @@ int afe_get_topology(int port_id)
 done:
 	return topology;
 }
+
 
 /**
  * afe_set_aanc_info -
@@ -597,17 +597,28 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			return -EINVAL;
 		}
 
-		param_id = (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V3) ?
-					payload[3] :
-					payload[2];
+		if (rtac_make_afe_callback(data->payload,
+					   data->payload_size))
+			return 0;
+
+		if (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V3)
+			param_id_pos = 4;
+		else
+			param_id_pos = 3;
+
+		if (data->payload_size >= param_id_pos * sizeof(uint32_t))
+				param_id = payload[param_id_pos - 1];
+		else {
+			pr_err("%s: Error: size %d is less than expected\n",
+				__func__, data->payload_size);
+			return -EINVAL;
+		}
 
 		if (param_id == AFE_PARAM_ID_DEV_TIMING_STATS) {
 			av_dev_drift_afe_cb_handler(data->opcode, data->payload,
 						    data->payload_size);
 		} else {
-			if (rtac_make_afe_callback(data->payload,
-						   data->payload_size))
-				return 0;
+
 #ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
 			if (atomic_read(&this_afe.tfa_state) == 1 &&
 				data->payload_size == sizeof(uint32_t)) {
@@ -2480,7 +2491,7 @@ static int send_afe_cal_type(int cal_index, int port_id)
 				this_afe.cal_data[cal_index]);
 
 	if (cal_block == NULL || cal_utils_is_cal_stale(cal_block)) {
-		pr_debug("%s cal_block not found!!\n", __func__);
+		pr_err("%s cal_block not found!!\n", __func__);
 		ret = -EINVAL;
 		goto unlock;
 	}
@@ -8648,6 +8659,7 @@ static void afe_release_uevent_data(struct kobject *kobj)
 }
 
 #ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+
 int send_tfa_cal_apr(void *buf, int cmd_size, bool bRead)
 {
 	int32_t result, port_id = AFE_PORT_ID_TFADSP_RX;

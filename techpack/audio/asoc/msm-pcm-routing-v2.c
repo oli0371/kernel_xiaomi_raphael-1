@@ -47,9 +47,8 @@
 #include "msm-qti-pp-config.h"
 #include "msm-dolby-dap-config.h"
 #include "msm-ds2-dap-config.h"
-
 #ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-#include "codecs/tfa98xx/tfa_platform_interface_definition.h"
+#include "codecs/tfa98xx/inc/tfa_platform_interface_definition.h"
 #endif
 
 #ifdef CONFIG_MSM_CSPL
@@ -3822,7 +3821,6 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_dapm_update *update = NULL;
 	bool state = true;
 
-
 	mutex_lock(&routing_lock);
 	switch (ucontrol->value.integer.value[0]) {
 	case 0:
@@ -3980,7 +3978,7 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 	}
 
 	pr_debug("%s: msm_route_ec_ref_rx = %d\n",
-	    __func__, msm_route_ec_ref_rx);
+			__func__, msm_route_ec_ref_rx);
 
 	if (!strncmp(widget->name, "AUDIO_REF_EC_UL10 MUX", strlen("AUDIO_REF_EC_UL10 MUX")))
 		voip_ext_ec_common_ref = msm_route_ec_ref_rx;
@@ -22110,11 +22108,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"INT0_MI2S_RX", NULL, "INT0_MI2S_RX_DL_HL"},
 	{"INT4_MI2S_RX_DL_HL", "Switch", "INT4_MI2S_DL_HL"},
 	{"INT4_MI2S_RX", NULL, "INT4_MI2S_RX_DL_HL"},
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-	{"PRI_MI2S_RX_DL_HL", "Switch", "CDC_DMA_DL_HL"},
-#else
 	{"PRI_MI2S_RX_DL_HL", "Switch", "PRI_MI2S_DL_HL"},
-#endif
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX_DL_HL"},
 	{"SEC_MI2S_RX_DL_HL", "Switch", "SEC_MI2S_DL_HL"},
 	{"SEC_MI2S_RX", NULL, "SEC_MI2S_RX_DL_HL"},
@@ -23438,6 +23432,11 @@ static uint32_t msm_routing_get_topology(size_t data_size, void *data)
 	uint32_t size = 0;
 
 	/* Retrieve cal_info size from cal data*/
+	if (data_size < sizeof(struct audio_cal_type_basic) +
+			sizeof(struct audio_cal_info_adm_top)) {
+		pr_err("%s: Invalid data size: %zd\n", __func__, data_size);
+		goto done;
+	}
 	size = data_size - sizeof(struct audio_cal_type_basic);
 	cal_info = kzalloc(size, GFP_KERNEL);
 
@@ -23614,6 +23613,38 @@ static const struct snd_kcontrol_new aptx_dec_license_controls[] = {
 	msm_aptx_dec_license_control_put),
 };
 
+static int msm_routing_put_port_chmap_mixer(struct snd_kcontrol *kcontrol,
+					    struct snd_ctl_elem_value *ucontrol)
+{
+	uint8_t channel_map[PCM_FORMAT_MAX_NUM_CHANNEL_V8];
+	uint32_t be_idx = ucontrol->value.integer.value[0];
+	int i;
+
+	if (be_idx >= MSM_BACKEND_DAI_MAX) {
+		pr_err("%s: Invalid Backend index %d\n",  __func__, be_idx);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V8; i++) {
+		channel_map[i] = (char)(ucontrol->value.integer.value[i + 1]);
+		if (channel_map[i] > PCM_MAX_CHMAP_ID) {
+			pr_err("%s: Invalid channel map %d\n",
+				__func__, channel_map[i]);
+			return -EINVAL;
+		}
+	}
+	adm_set_port_multi_ch_map(channel_map, msm_bedais[be_idx].port_id);
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new port_multi_channel_map_mixer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("Backend Device Channel Map", SND_SOC_NOPM, 0,
+			MSM_BACKEND_DAI_MAX, 0,
+			PCM_FORMAT_MAX_NUM_CHANNEL_V8 + 1, NULL,
+			msm_routing_put_port_chmap_mixer),
+};
+
 static int msm_routing_be_dai_name_table_info(struct snd_kcontrol *kcontrol,
 					      struct snd_ctl_elem_info *uinfo)
 {
@@ -23780,6 +23811,10 @@ static const struct snd_pcm_ops msm_routing_pcm_ops = {
 	.prepare        = msm_pcm_routing_prepare,
 };
 
+#ifdef CONFIG_MSM_CSPL
+	//extern void msm_crus_pb_add_controls(struct snd_soc_platform *platform);
+#endif
+
 /* Not used but frame seems to require it */
 static int msm_routing_probe(struct snd_soc_platform *platform)
 {
@@ -23839,6 +23874,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 		msm_routing_be_dai_name_table_mixer_controls,
 		ARRAY_SIZE(msm_routing_be_dai_name_table_mixer_controls));
 
+#ifdef CONFIG_MSM_CSPL
+	//msm_crus_pb_add_controls(platform);
+#endif
+
 	snd_soc_add_platform_controls(platform, msm_source_tracking_controls,
 				ARRAY_SIZE(msm_source_tracking_controls));
 	snd_soc_add_platform_controls(platform, adm_channel_config_controls,
@@ -23851,7 +23890,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(
 			platform, msm_routing_feature_support_mixer_controls,
 			ARRAY_SIZE(msm_routing_feature_support_mixer_controls));
-	elliptic_add_platform_controls(platform);
+	snd_soc_add_platform_controls(platform,
+			port_multi_channel_map_mixer_controls,
+			ARRAY_SIZE(port_multi_channel_map_mixer_controls));
+        elliptic_add_platform_controls(platform);
 
 	return 0;
 }

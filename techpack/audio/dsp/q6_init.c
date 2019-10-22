@@ -19,6 +19,7 @@ GNU General Public License for more details.
 static int __init audio_q6_init(void)
 {
 	adsp_err_init();
+	audio_cal_init();
 	rtac_init();
 	adm_init();
 	afe_init();
@@ -34,8 +35,8 @@ static int __init audio_q6_init(void)
 	crus_sp_init();
 #endif
 	msm_mdf_init();
-	voice_mhi_init();
 	elliptic_driver_init();
+	voice_mhi_init();
 	return 0;
 }
 
@@ -58,8 +59,8 @@ static void __exit audio_q6_exit(void)
 	rtac_exit();
 	audio_cal_exit();
 	adsp_err_exit();
-	voice_mhi_exit();
 	elliptic_driver_exit();
+	voice_mhi_exit();
 }
 
 module_init(audio_q6_init);
