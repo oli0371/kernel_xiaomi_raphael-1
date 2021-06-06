@@ -64,7 +64,7 @@ echo -e "${restore}"
 
 
 # Vars
-BASE_AK_VER="SOVIET-STAR-"
+BASE_AK_VER="SOVIET-STAR-no-dimplayer-"
 DATE=`date +"%Y%m%d-%H%M"`
 AK_VER="$BASE_AK_VER$VER"
 ZIP_NAME="$AK_VER"-"$DATE"
