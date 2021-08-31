@@ -64,7 +64,7 @@ echo -e "${restore}"
 
 
 # Vars
-BASE_AK_VER="SOVIET-GULAG-"
+BASE_AK_VER="SOVIET-GULAG-NODIMLAYER-"
 DATE=`date +"%Y%m%d-%H%M"`
 AK_VER="$BASE_AK_VER$VER"
 ZIP_NAME="$AK_VER"-"$DATE"
