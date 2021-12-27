@@ -17,7 +17,7 @@ export THINLTO_CACHE=/datadrive/kernel/ltocache/
 DEFCONFIG="raphael_defconfig"
 
 # Kernel Details
-VER="G2.6"
+VER="G2.7"
 
 # Paths
 KERNEL_DIR=`pwd`
