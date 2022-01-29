@@ -80,17 +80,21 @@ static void thermal_throttle_worker(struct work_struct *work)
 	thermal_zone_get_temp(thermal_zone_get_zone_by_name("battery"), &temp_batt);
 
 	/* HQ autism coming up */
-	if (temp_batt <= 30000)
+	if (temp_batt <= 24000)
+		/* Battery is cool-ish, bias the temp towards it */
 		temp_avg = (temp_cpus_avg * 2 + temp_batt * 3) / 5;
-	else if (temp_batt > 30000 && temp_batt <= 38000)
+	else if (temp_batt > 24000 && temp_batt <= 28000)
+		/* Getting warmer, start biasing towards CPU temps */
 		temp_avg = (temp_cpus_avg * 3 + temp_batt * 2) / 5;
-	else if (temp_batt > 38000 && temp_batt <= 43000)
+	else if (temp_batt > 28000 && temp_batt <= 32000)
+		/* Getting even warmer, go even more towards CPU temps */
 		temp_avg = (temp_cpus_avg * 4 + temp_batt) / 5;
-	else if (temp_batt > 43000)
+	else if (temp_batt > 32000)
+		/* Battery is hot, go for CPU temps */
 		temp_avg = (temp_cpus_avg * 5 + temp_batt) / 6;
 
 	/* Emergency case */
-	if (temp_cpus_avg > 90000)
+	if (temp_cpus_avg > 86000)
 		temp_avg = (temp_cpus_avg * 6 + temp_batt) / 7;
 
 	old_zone = t->curr_zone;
@@ -105,7 +109,7 @@ static void thermal_throttle_worker(struct work_struct *work)
 
 	/* Update thermal zone if it changed */
 	if (new_zone != old_zone) {
-		pr_info("temp: %i\n", temp_avg);
+		pr_info("temp_avg: %i, batt: %i, cpus: %i\n", temp_avg, temp_batt, temp_cpus_avg);
 		t->curr_zone = new_zone;
 		update_online_cpu_policy();
 	}
