@@ -22,6 +22,7 @@
 #include <video/mipi_display.h>
 
 #include "dsi_panel.h"
+#include "dsi_display.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_parser.h"
 
@@ -758,6 +759,17 @@ int dsi_panel_set_fod_hbm(struct dsi_panel *panel, bool status)
 	return rc;
 }
 
+bool dc_skip_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
+{
+	/* 1. dc enable is 1;
+	 * 2. bl lvl should less than dc theshold;
+	 * 3. bl lvl not 0, we should not skip set 0;
+	 * 4. dc type is 1 means need backlight control here, 0 means IC can switch automatically.
+	 * When meet all the 4 conditions at the same time, skip set this bl.
+	 */
+	return panel->dc_enable && bl_lvl < panel->dc_threshold && bl_lvl != 0 && panel->dc_type && panel->last_bl_lvl != 0;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
@@ -767,6 +779,13 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		return 0;
 
 	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
+
+	if (dc_skip_set_backlight(panel, bl_lvl)) {
+		panel->last_bl_lvl = bl_lvl;
+		pr_info("skip set backlight because dc is enabled %d, bl %d\n", panel->dc_enable, bl_lvl);
+		return rc;
+	}
+
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		rc = backlight_device_set_brightness(bl->raw_bd, bl_lvl);
@@ -783,6 +802,8 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		pr_err("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
 	}
+
+	panel->last_bl_lvl = bl_lvl;
 
 	return rc;
 }
@@ -1881,6 +1902,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-qsync-off-commands",
 	"qcom,mdss-dsi-dispparam-hbm-fod-on-command",
 	"qcom,mdss-dsi-dispparam-hbm-fod-off-command",
+	"qcom,mdss-dsi-dispparam-dc-on-command",
+	"qcom,mdss-dsi-dispparam-dc-off-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1909,6 +1932,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-qsync-off-commands-state",
 	"qcom,mdss-dsi-dispparam-hbm-fod-on-command-state",
 	"qcom,mdss-dsi-dispparam-hbm-fod-off-command-state",
+	"qcom,mdss-dsi-dispparam-dc-on-command-state",
+	"qcom,mdss-dsi-dispparam-dc-off-command-state",
 };
 
 static int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -2538,6 +2563,27 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 
 	panel->bl_config.bl_inverted_dbv = utils->read_bool(utils->data,
 		"qcom,mdss-dsi-bl-inverted-dbv");
+
+
+	rc = utils->read_u32(utils->data,
+			"mi,mdss-dsi-panel-dc-threshold", &val);
+	if (rc) {
+		panel->dc_threshold = 610;
+		pr_info("default dc backlight threshold is %d\n", panel->dc_threshold);
+	} else {
+		panel->dc_threshold = val;
+	}
+
+	rc = utils->read_u32(utils->data,
+			"mi,mdss-dsi-panel-dc-type", &val);
+	if (rc) {
+		panel->dc_type = 1;
+		pr_info("default dc backlight type is %d\n", panel->dc_type);
+	} else {
+		panel->dc_type = val;
+	}
+
+	panel->dc_enable = false;
 
 	rc = dsi_panel_parse_fod_dim_lut(panel, utils);
 	if (rc)
@@ -4563,6 +4609,13 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	if (panel->hbm_mode)
 		dsi_panel_apply_hbm_mode(panel);
 
+	if (panel->dc_type == 0 && panel->dc_enable) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_DC_ON);
+		if (rc)
+			pr_err("[%s] failed to send DSI_CMD_SET_DISP_DC_ON cmd, rc=%d\n",
+					panel->name, rc);
+	}
+
 	return rc;
 }
 
@@ -4737,6 +4790,29 @@ int dsi_panel_apply_hbm_mode(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 	rc = dsi_panel_tx_cmd_set(panel, type);
+	mutex_unlock(&panel->panel_lock);
+
+	return rc;
+}
+
+int dsi_panel_apply_dc_mode(struct dsi_panel *panel)
+{
+	int rc;
+
+	enum dsi_cmd_set_type type = panel->dc_enable
+			? DSI_CMD_SET_DISP_DC_ON
+			: DSI_CMD_SET_DISP_DC_OFF;
+
+	mutex_lock(&panel->panel_lock);
+
+	rc = dsi_panel_tx_cmd_set(panel, type);
+	if (rc)
+		pr_err("[%s] failed to send %s cmd, rc=%d\n",
+				panel->name, type, rc);
+	else
+		rc = dsi_panel_update_backlight(panel,
+				panel->last_bl_lvl);
+
 	mutex_unlock(&panel->panel_lock);
 
 	return rc;
