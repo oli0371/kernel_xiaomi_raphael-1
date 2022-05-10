@@ -461,6 +461,7 @@ struct goodix_ts_core {
 	unsigned long sleep_finger;
 	unsigned long event_status;
 	unsigned int avdd_load;
+	unsigned char lockdown_info[GOODIX_LOCKDOWN_SIZE];
 
 	int power_on;
 	int irq;
